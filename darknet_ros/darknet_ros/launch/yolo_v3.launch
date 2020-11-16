@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+ 
+<!-- This lanches the Usb Webcam --> 
+<!-- <node pkg="usb_cam" type="usb_cam_node" name="front_camera" args="_video_device:=/dev/video2" /> -->
+
+<!-- This launches the machine webcam -->
+<!-- <node pkg="usb_cam" type="usb_cam_node" name="front_camera" args="_video_device:=/dev/video0" /> -->
+
+
+  <!-- Use YOLOv3 -->
+  <arg name="network_param_file"         default="$(find darknet_ros)/config/yolov3.yaml"/>
+  <!-- <arg name="image" default="camera/rgb/image_raw" /> -->
+
+
+  <!-- Include main launch file -->
+  <include file="$(find darknet_ros)/launch/darknet_ros.launch">
+    <arg name="network_param_file"    value="$(arg network_param_file)"/>
+  <!--  <arg name="image" value="$(arg image)" /> -->
+  </include>
+
+</launch>

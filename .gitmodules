@@ -1,3 +1,0 @@
-[submodule "darknet_ros"]
-	path = darknet_ros
-	url = https://github.com/slabban/darknet_ros

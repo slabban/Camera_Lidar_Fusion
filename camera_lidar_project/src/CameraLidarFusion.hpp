@@ -14,6 +14,8 @@
 #include <camera_lidar_project/CameraLidarFusionConfig.h>
 #include <darknet_ros_msgs/BoundingBoxes.h>
 #include <darknet_ros_msgs/BoundingBox.h>
+//Library for Mathmatical Operations
+#include <math.h>
 
 
 namespace camera_lidar_project
@@ -31,6 +33,7 @@ class CameraLidarFusion
     void recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg);
     void recvDetectionImage(const darknet_ros_msgs::BoundingBoxesConstPtr& msg);
     cv::Rect2d getCamBbox(const avs_lecture_msgs::TrackedObject& object, const tf2::Transform& transform, const image_geometry::PinholeCameraModel& model);
+    bool IoU(cv::Rect2d r1,cv::Rect2d r2);
 
     geometry_msgs::Point projectPoint(const image_geometry::PinholeCameraModel& model, const cv::Point2d& p);
 
@@ -51,6 +54,9 @@ class CameraLidarFusion
     bool looked_up_camera_transform_;
     std::vector<cv::Rect2d> cam_bboxes_;
     std::vector<darknet_ros_msgs::BoundingBox> detections;
+
+    bool doOverlap;
+    
 };
 
 }

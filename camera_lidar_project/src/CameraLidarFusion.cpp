@@ -23,6 +23,8 @@ CameraLidarFusion::CameraLidarFusion(ros::NodeHandle n, ros::NodeHandle pn) :
 #endif
   namedWindow("Output", cv::WINDOW_NORMAL);
   // namedWindow("First Object", cv::WINDOW_NORMAL);
+
+  
 }
 
 void CameraLidarFusion::recvDetectionImage(const darknet_ros_msgs::BoundingBoxesConstPtr& msg)
@@ -36,7 +38,7 @@ void CameraLidarFusion::recvDetectionImage(const darknet_ros_msgs::BoundingBoxes
 
   //ROS_INFO("xmin: %i", bbox_width);
   
-
+/*
 for (auto& detect : detections)
 {
 
@@ -64,9 +66,7 @@ float height = 0.5 * (detect.ymin+detect.ymax);
 //ROS_INFO("Image height: %f \n", height);
 
 
-
-
-}
+}*/
 
 
 
@@ -91,6 +91,33 @@ void CameraLidarFusion::recvImage(const sensor_msgs::ImageConstPtr& msg)
   // }
   for (auto& bbox : cam_bboxes_) {
     cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
+
+    for (auto& detect : detections){
+
+    
+      if (detect.Class != "car"){
+
+      continue;
+      }
+
+      //ROS_INFO("%s \n", detect.Class.c_str());
+
+    double width = (detect.xmax-detect.xmin);
+    double height =(detect.ymax-detect.ymin);
+
+    cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
+
+    cv::rectangle(raw_img, detect_car, Scalar(255, 0, 255));
+
+    IoU(detect_car, bbox);
+
+    //TO DO: Implement Intersection Over Union Funtion 
+
+    //ROS_INFO("Image width: %f \n", width);
+
+    //ROS_INFO("Image height: %f \n", height);
+
+      }
   }
 
   cv::pyrDown(raw_img, raw_img, cv::Size(raw_img.cols/2, raw_img.rows/2));
@@ -192,4 +219,70 @@ void CameraLidarFusion::reconfig(CameraLidarFusionConfig& config, uint32_t level
   broadcaster_.sendTransform(camera_transform_);
 }
 
+bool CameraLidarFusion::IoU(cv::Rect2d r1,cv::Rect2d r2)
+{  
+
+  //define maximum point on the rectangles, bottom right point of the rectangle
+
+
+  double r1_xmax = r1.x + r1.width;
+  double r1_ymax = r1.y + r1.height;
+
+  double r2_xmax = r2.x + r2.width;
+  double r2_ymax = r2.y + r2.height;
+
+
+  // If one rectangle is on left side of other 
+  if (r1.x >= r2_xmax || r2.x >= r1_xmax)
+  {
+   return false;
+  }
+    
+         
+   //If one rectangle is above other (Recall down is positive in OpenCV)
+  if (r1.y >= r2_ymax || r2.y >= r1_ymax) 
+  {
+    return false;
+  }
+
+
+  //Area of rectangles
+  double r1_area = r1.width * r1.height;
+  double r2_area = r2.width * r2.height;
+
+  //Locate top-left of intersected rectangle
+  double ri_x = max(r1.x,r2.x);
+  double ri_y = max(r1.y, r2.y);
+
+  //Locate top-right of intersected rectangle
+  double ri_xmax = min(r1_xmax,r2_xmax);
+  double ri_ymax = min(r1_ymax,r2_ymax);
+
+  //Calculate Intersected Width
+  double ri_width = ri_xmax - ri_x;
+
+  //Calculate Intersected Height
+  double ri_height = ri_ymax - ri_y;
+
+  //Area of intersection
+  double ri_area = ri_height*ri_width;
+
+  //Determine Intersection over Union
+  double IoU = ri_area/((r1_area + r2_area)-ri_area);
+
+  
+  if(IoU > 0.65 )
+  {
+    ROS_INFO("IoU :%f", IoU);
+    return true;
+  }
+  else
+  {
+  return false;
+  }
+
+  
 }
+
+}
+

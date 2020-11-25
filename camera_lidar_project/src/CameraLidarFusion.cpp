@@ -15,6 +15,8 @@ CameraLidarFusion::CameraLidarFusion(ros::NodeHandle n, ros::NodeHandle pn) :
   sub_image_ = cam_nh.subscribe("image_rect_color", 1, &CameraLidarFusion::recvImage, this);
   sub_lidar_objects_ = n.subscribe("detected_objects", 1, &CameraLidarFusion::recvLidarObjects, this);
   sub_detections_ = n.subscribe("/darknet_ros/bounding_boxes", 1, &CameraLidarFusion::recvDetectionImage, this);
+  //pub_bboxes_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("fused_objects", 1);
+  label_object = n.advertise<visualization_msgs::MarkerArray>("labels", 1);
 
   looked_up_camera_transform_ = false;
 #if CALIBRATE_ALIGNMENT
@@ -32,44 +34,6 @@ void CameraLidarFusion::recvDetectionImage(const darknet_ros_msgs::BoundingBoxes
 
   detections = msg->bounding_boxes ;
 
-  //darknet_ros_msgs::BoundingBox yolo_bbox;
-
-  //double bbox_width = yolo_bbox.xmax;
-
-  //ROS_INFO("xmin: %i", bbox_width);
-  
-/*
-for (auto& detect : detections)
-{
-
-  //darknet_ros_msgs::BoundingBox yolo_bbox;
-
-  //double bbox_width = yolo_bbox.xmax;
-
-  //ROS_INFO("xmin: %i", yolo_bbox.xmax);
-
-
-//Alternatively could use 
-  if (detect.Class != "car"){
-
-    continue;
-
-  }
-
-//ROS_INFO("%s \n", detect.Class.c_str());
-
-float width = 0.5*(detect.xmin+detect.xmax);
-float height = 0.5 * (detect.ymin+detect.ymax);
-
-//ROS_INFO("Image width: %f \n", width);
-
-//ROS_INFO("Image height: %f \n", height);
-
-
-}*/
-
-
-
 }
 
 // This function is called whenever a new image is received from either
@@ -77,6 +41,7 @@ float height = 0.5 * (detect.ymin+detect.ymax);
 // image coming from Gazebo
 void CameraLidarFusion::recvImage(const sensor_msgs::ImageConstPtr& msg)
 {
+
   // Convert ROS image message into an OpenCV Mat
   cv::Mat raw_img = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8)->image;
 
@@ -89,8 +54,16 @@ void CameraLidarFusion::recvImage(const sensor_msgs::ImageConstPtr& msg)
   //     break;
   //   }
   // }
+
+
+  // Implement message synchronizer 
+
+  // implement wall time (ros::walltime for Bag files) to gauge processing time, compare agaist 10HZ
+
+  // run rostopic hz to see publsih rate of topics
+
   for (auto& bbox : cam_bboxes_) {
-    cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
+    //cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
 
     for (auto& detect : detections){
 
@@ -107,11 +80,22 @@ void CameraLidarFusion::recvImage(const sensor_msgs::ImageConstPtr& msg)
 
     cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
 
-    cv::rectangle(raw_img, detect_car, Scalar(255, 0, 255));
+    //cv::rectangle(raw_img, detect_car, Scalar(255, 0, 255));
 
-    IoU(detect_car, bbox);
+    //ROS_INFO("Box ID: %d", bbox_id );
 
-    //TO DO: Implement Intersection Over Union Funtion 
+    //Assign the label to the lidar box, Identified by the unique box id
+    if(IoU(detect_car, bbox))
+    {
+
+      ROS_INFO("This Box is a car: %d", bbox_id );
+      cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
+
+      car_boxid = bbox_id;
+
+
+
+    }
 
     //ROS_INFO("Image width: %f \n", width);
 
@@ -127,6 +111,11 @@ void CameraLidarFusion::recvImage(const sensor_msgs::ImageConstPtr& msg)
 
 void CameraLidarFusion::recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)
 {
+
+  //revisit
+  //fused_objects = msg ->objects;
+
+
   // Do nothing until the coordinate transform from footprint to camera is valid,
   // because otherwise there is no point in detecting a lane!
   if (!looked_up_camera_transform_) {
@@ -152,11 +141,19 @@ void CameraLidarFusion::recvLidarObjects(const avs_lecture_msgs::TrackedObjectAr
     tf2::convert(camera_transform_.transform, transform);
     cam_bboxes_.push_back(getCamBbox(obj, transform, model));
   }
+
+  //fused_objects = msg->objects;
+  
+
+
+
+
 }
 
 // The purpose of this function is to convert the bounding box from the Lidar from a 3D frame to 2D frame that can be interpreted in the camera's reference frame
 cv::Rect2d CameraLidarFusion::getCamBbox(const avs_lecture_msgs::TrackedObject& object, const tf2::Transform& transform, const image_geometry::PinholeCameraModel& model)
 {
+
 
   // declare variables to store the maximum and minimum values of the 3D lidar bounding boxes
   std::vector<double> xvals(2);
@@ -169,11 +166,15 @@ cv::Rect2d CameraLidarFusion::getCamBbox(const avs_lecture_msgs::TrackedObject& 
   zvals[0] = -0.5 * object.bounding_box_scale.z;
   zvals[1] = 0.5 * object.bounding_box_scale.z;
 
-// Loop through the x, y, and z, mins and maxes of the bounding boxes in order to and project these values in the camera's frame
+//ROS_INFO("Box ID: %d", object.id );
+
+// Loop through the x, y, and z of the bounding boxes in order to and project these values in the camera's frame
   int min_x = 99999;
   int max_x = 0;
   int min_y = 99999;
   int max_y = 0;
+
+
   for (size_t i = 0; i < xvals.size(); i++) {
     for (size_t j = 0; j < xvals.size(); j++) {
       for (size_t k = 0; k < xvals.size(); k++) {
@@ -181,6 +182,8 @@ cv::Rect2d CameraLidarFusion::getCamBbox(const avs_lecture_msgs::TrackedObject& 
                                                                    object.pose.position.y + yvals[i],
                                                                    object.pose.position.z + zvals[i]);
         cv::Point2d p = model.project3dToPixel(cv::Point3d(cam_vect.x(), cam_vect.y(), cam_vect.z()));
+
+        //Bound the maximum and minimum values of the rectangle to fit in the cameras pixel coordinates
         if (p.x < min_x) {
           min_x = p.x;
         }
@@ -193,6 +196,20 @@ cv::Rect2d CameraLidarFusion::getCamBbox(const avs_lecture_msgs::TrackedObject& 
         if (p.y > max_y) {
           max_y = p.y;
         }
+
+        bbox_id = object.id;
+        bbox_scale_x = object.bounding_box_scale.x;
+        bbox_scale_y = object.bounding_box_scale.y;
+        bbox_scale_z = object.bounding_box_scale.z;
+        bbox_pos_x = object.pose.position.x;
+        bbox_pos_y = object.pose.position.y;
+        bbox_pos_z = object.pose.position.z;
+        bbox_orientation= object.pose.orientation.w;
+
+
+
+        //ROS_INFO("Box ID: %d", bbox_id );
+
       }
     }
   }
@@ -223,13 +240,12 @@ bool CameraLidarFusion::IoU(cv::Rect2d r1,cv::Rect2d r2)
 {  
 
   //define maximum point on the rectangles, bottom right point of the rectangle
+ 
+  double r1_xmax = r1.br().x;
+  double r1_ymax = r1.br().y;
 
-
-  double r1_xmax = r1.x + r1.width;
-  double r1_ymax = r1.y + r1.height;
-
-  double r2_xmax = r2.x + r2.width;
-  double r2_ymax = r2.y + r2.height;
+  double r2_xmax = r2.br().x;
+  double r2_ymax = r2.br().y;
 
 
   // If one rectangle is on left side of other 
@@ -247,8 +263,8 @@ bool CameraLidarFusion::IoU(cv::Rect2d r1,cv::Rect2d r2)
 
 
   //Area of rectangles
-  double r1_area = r1.width * r1.height;
-  double r2_area = r2.width * r2.height;
+  double r1_area = r1.area();
+  double r2_area = r2.area();
 
   //Locate top-left of intersected rectangle
   double ri_x = max(r1.x,r2.x);
@@ -271,7 +287,7 @@ bool CameraLidarFusion::IoU(cv::Rect2d r1,cv::Rect2d r2)
   double IoU = ri_area/((r1_area + r2_area)-ri_area);
 
   
-  if(IoU > 0.65 )
+  if(IoU > 0.5 )
   {
     ROS_INFO("IoU :%f", IoU);
     return true;
@@ -283,6 +299,37 @@ bool CameraLidarFusion::IoU(cv::Rect2d r1,cv::Rect2d r2)
 
   
 }
+
+/*
+//revisit
+void CameraLidarFusion::generateBoundingBoxes(const avs_lecture_msgs::TrackedObject& object)
+{
+  //fused_objects = msg->objects;
+
+  for (size_t i = 0; i < fused_objects.size(); i++)
+  {
+    
+  }
+  
+
+ 
+
+    //for(auto& fused_object : fused_objects)
+    //{
+
+      //ROS_INFO("ID: %d", fused_object.id);
+
+      if (bbox_id = car_box)
+      {
+
+        ROS_INFO("oink");
+        pub_bboxes_.publish(fused_objects);
+      }
+      
+
+    //}
+}
+*/
 
 }
 

@@ -13,10 +13,9 @@
 #include <dynamic_reconfigure/server.h>
 #include <camera_lidar_project/CameraLidarFusionConfig.h>
 #include <darknet_ros_msgs/BoundingBoxes.h>
-#include <darknet_ros_msgs/BoundingBox.h>
 #include <math.h>
 #include <visualization_msgs/MarkerArray.h>
-
+#include <camera_lidar_project/FusedObjectArray.h>
 
 namespace camera_lidar_project
 {
@@ -33,8 +32,9 @@ class CameraLidarFusion
     void recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg);
     void recvDetectionImage(const darknet_ros_msgs::BoundingBoxesConstPtr& msg);
     cv::Rect2d getCamBbox(const avs_lecture_msgs::TrackedObject& object, const tf2::Transform& transform, const image_geometry::PinholeCameraModel& model);
-    bool IoU(cv::Rect2d r1,cv::Rect2d r2);
-
+    //bool IoU(cv::Rect2d r1,cv::Rect2d r2);
+    bool IoU(cv::Rect2d r1, darknet_ros_msgs::BoundingBox& detect);
+    //darknet_ros_msgs::BoundingBox& detect
     //revisit
     //void generateBoundingBoxes(const avs_lecture_msgs::TrackedObject& object);
 
@@ -50,7 +50,9 @@ class CameraLidarFusion
     ros::Subscriber sub_lidar_objects_;
     ros::Publisher pub_markers_;
     //ros::Publisher pub_bboxes_;
-    ros::Publisher label_object;
+    ros::Publisher car_bboxes_;
+    ros::Publisher bounding_boxes_;
+    ros::Publisher detectionImagePublisher_;
     std::shared_ptr<dynamic_reconfigure::Server<CameraLidarFusionConfig> > srv_;
 
     sensor_msgs::CameraInfo camera_info_;
@@ -58,14 +60,16 @@ class CameraLidarFusion
     bool looked_up_camera_transform_;
     std::vector<cv::Rect2d> cam_bboxes_;
     std::vector<darknet_ros_msgs::BoundingBox> detections;
+    
 
     //revisit
-    //std::vector<avs_lecture_msgs::TrackedObjectArray_> car_boxes;
-    //avs_lecture_msgs::TrackedObjectArray car_boxes;
+    //FusedObjectArray car_boxes;
+    avs_lecture_msgs::TrackedObjectArray car_boxes;
 
     bool doOverlap;
     uint32_t bbox_id;
     uint32_t car_boxid;
+    //std_msgs::Header bbox_header; 
     _Float64 bbox_scale_x; 
     _Float64 bbox_scale_y; 
     _Float64 bbox_scale_z; 
@@ -73,6 +77,8 @@ class CameraLidarFusion
     _Float64 bbox_pos_y; 
     _Float64 bbox_pos_z; 
     _Float64 bbox_orientation;
+
+    cv::Mat raw_img;
 
     
 };

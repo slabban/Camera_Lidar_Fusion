@@ -24,5 +24,7 @@
   <!--  <remap from="front_camera/image_raw"  to="$(arg image)" /> -->
   </node>
 
+  <node pkg="camera_lidar_project" type="synced_yolo_data" name="synced_yolo_data" output="screen" />
+
  <!--<node name="republish" type="republish" pkg="image_transport" output="screen" 	args="compressed in:=/front_camera/image_raw raw out:=/camera/image_raw" /> -->
 </launch>

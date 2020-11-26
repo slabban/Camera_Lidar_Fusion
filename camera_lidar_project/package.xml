@@ -17,9 +17,11 @@
   <depend>cv_bridge</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>
+  <depend>geometry_msgs</depend>
   <depend>avs_lecture_msgs</depend>
   <depend>darknet_ros</depend>
   <depend>darknet_ros_msgs</depend>
+  <depend>message_filters</depend>
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
 

@@ -13,7 +13,10 @@ find_package(catkin REQUIRED COMPONENTS
   avs_lecture_msgs
   darknet_ros_msgs
   darknet_ros 
+  message_generation
+  message_filters
 )
+
 find_package(OpenCV REQUIRED)
 catkin_python_setup()
 
@@ -21,7 +24,18 @@ generate_dynamic_reconfigure_options(
   cfg/CameraLidarFusion.cfg
 )
 
+add_message_files(
+  FILES 
+  FusedObjectArray.msg
+  FusedObject.msg
+)
 
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+)
 
 catkin_package(
   DEPENDS OpenCV
@@ -46,9 +60,28 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
 )
 
+add_executable(synced_yolo_data
+  src/synced_yolo_data.cpp
+  src/SyncedYoloData.cpp
+)
+add_dependencies(synced_yolo_data
+  ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries(synced_yolo_data
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+)
+
 catkin_install_python(
   PROGRAMS
     src/${PROJECT_NAME}/pub_camera_info.py
   DESTINATION
     ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(
+  TARGETS
+    ${PROJECT_NAME}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 )

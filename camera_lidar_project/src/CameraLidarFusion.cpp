@@ -57,7 +57,7 @@ void CameraLidarFusion::recvDetectionImage(const darknet_ros_msgs::BoundingBoxes
 
     cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
 
-    //cv::rectangle(raw_img, detect_car, Scalar(255, 0, 255));
+    cv::rectangle(raw_img, detect_car, Scalar(255, 0, 255));
 
     //ROS_INFO("Box ID: %d", bbox_id );
     
@@ -66,7 +66,7 @@ void CameraLidarFusion::recvDetectionImage(const darknet_ros_msgs::BoundingBoxes
     {
 
       ROS_INFO("This Box is a car: %d", bbox_id );
-      cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
+      //cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
 
       //car_boxes.objects.clear();
 
@@ -104,10 +104,6 @@ void CameraLidarFusion::recvDetectionImage(const darknet_ros_msgs::BoundingBoxes
 
     }
 
-    //ROS_INFO("Image width: %f \n", width);
-
-    //ROS_INFO("Image height: %f \n", height);
-
       }
     }
   
@@ -116,6 +112,7 @@ void CameraLidarFusion::recvDetectionImage(const darknet_ros_msgs::BoundingBoxes
   cv::pyrDown(raw_img, raw_img, cv::Size(raw_img.cols/2, raw_img.rows/2));
   imshow("Output", raw_img);
   waitKey(1);
+  
 
 /*
   cv_bridge::CvImage cvImage;
@@ -242,6 +239,7 @@ void CameraLidarFusion::recvImage(const sensor_msgs::ImageConstPtr& msg)
   cvImage.image = raw_img;
   detectionImagePublisher_.publish(*cvImage.toImageMsg());
     */
+
 }
 
 void CameraLidarFusion::recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)

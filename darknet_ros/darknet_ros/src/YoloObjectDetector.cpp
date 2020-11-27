@@ -379,6 +379,7 @@ void* YoloObjectDetector::fetchInThread() {
   return 0;
 }
 
+
 void* YoloObjectDetector::displayInThread(void* ptr) {
   show_image_cv(buff_[(buffIndex_ + 1) % 3], "YOLO V3", ipl_);
   int c = cv::waitKey(waitKeyDelay_);

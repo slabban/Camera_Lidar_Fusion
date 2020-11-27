@@ -6,7 +6,7 @@
   <param name="use_sim_time" value="$(arg offline)" />
 
   <!-- Example node to get bounding boxes in an image corresponding to LIDAR clusters -->
-   <node pkg="camera_lidar_project" type="camera_lidar_project" name="camera_lidar_fusion" output="screen" /> 
+   <!-- <node pkg="camera_lidar_project" type="camera_lidar_project" name="camera_lidar_fusion" output="screen" /> -->
 
   <!-- Read raw images from the bag file. Need to replace with your particular camera setup -->
   <include file="$(find camera_lidar_project)/launch/mono_camera_driver.launch" >
@@ -29,7 +29,7 @@
     <arg name="raw_points_topic" value="/cepton/points_raw" />
   </include>
 
-  <!-- <node pkg="camera_lidar_project" type="synced_yolo_data" name="synced_yolo" output="screen" /> -->
+  <node pkg="camera_lidar_project" type="synced_yolo_data" name="synced_yolo_data" output="screen" /> 
   
   <node pkg="rviz" type="rviz" name="camera_lidar_fusion_viz" args="-d $(find camera_lidar_project)/rviz/rviz_config.rviz" respawn="true" />
 

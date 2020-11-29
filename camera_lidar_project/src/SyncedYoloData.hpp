@@ -25,18 +25,18 @@
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/sync_policies/approximate_time.h>
 
+using namespace cv;
 //changed
 namespace camera_lidar_project
 {
 
   typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, darknet_ros_msgs::BoundingBoxes> YoloSyncPolicy;
 
-  //typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
-  typedef message_filters::sync_policies::ApproximateTime<darknet_ros_msgs::BoundingBoxes, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
+  //typedef message_filters::sync_policies::ExactTime<darknet_ros_msgs::BoundingBoxes, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
 
   //Create Approximate time here for Lidar and Yolo detections
 
-  //typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, darknet_ros_msgs::BoundingBoxes> YoloSyncPolicy;
 
   class SyncedYoloData
   {
@@ -51,8 +51,9 @@ namespace camera_lidar_project
 
       void recvSyncedData(const sensor_msgs::ImageConstPtr& img_msg, const darknet_ros_msgs::BoundingBoxesConstPtr& bbox_msg);
       
-      //void recvLidarSynced(const sensor_msgs::ImageConstPtr& img_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg);
-      void recvLidarSynced(const darknet_ros_msgs::BoundingBoxesConstPtr& bbox_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg);
+      void recvLidarSynced(const sensor_msgs::ImageConstPtr& img_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg);
+      //void recvLidarSynced(const darknet_ros_msgs::BoundingBoxesConstPtr& bbox_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg);
+      void recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg);
 
       cv::Rect2d getCamBbox(const avs_lecture_msgs::TrackedObject& object, const tf2::Transform& transform, const image_geometry::PinholeCameraModel& model);
 
@@ -75,6 +76,9 @@ namespace camera_lidar_project
 
       ros::Subscriber sub_cam_info_;
       ros::Publisher car_bboxes_;
+      ros::Subscriber sub_lidar_objects_;
+
+
       /*
       ros::Subscriber sub_image_;
       ros::Subscriber sub_detections_;
@@ -90,7 +94,16 @@ namespace camera_lidar_project
     sensor_msgs::CameraInfo camera_info_;
     geometry_msgs::TransformStamped camera_transform_; // Coordinate transformation from footprint to camera
     bool looked_up_camera_transform_;
+
     std::vector<cv::Rect2d> cam_bboxes_;
+
+    //using box_w_id = boost::variant<cv::Rect2d, int>;
+    //std::vector<box_w_id> vec;
+
+    //std::vector<std::pair<cv::Rect2d, int> > myArr;
+
+    std::vector<std::pair<cv::Rect2d, avs_lecture_msgs::TrackedObject> > myArr;
+
     std::vector<darknet_ros_msgs::BoundingBox> detections;
     
 
@@ -99,6 +112,8 @@ namespace camera_lidar_project
     avs_lecture_msgs::TrackedObjectArray car_boxes;
 
     bool doOverlap;
+
+    /*
     uint32_t bbox_id;
     uint32_t car_boxid;
     //std_msgs::Header bbox_header; 
@@ -109,5 +124,6 @@ namespace camera_lidar_project
     _Float64 bbox_pos_y; 
     _Float64 bbox_pos_z; 
     _Float64 bbox_orientation;
+    */
   };
 }

@@ -17,13 +17,15 @@ namespace camera_lidar_project
     sub_cam_info_ = cam_nh.subscribe("camera_info", 1, &SyncedYoloData::recvCameraInfo, this);
     sub_img_.reset(new message_filters::Subscriber<sensor_msgs::Image>(n, "/darknet_ros/detection_image", 5));
     sub_objects_.reset(new message_filters::Subscriber<darknet_ros_msgs::BoundingBoxes>(n, "/darknet_ros/bounding_boxes", 5));
-    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "object_tracks", 5));
+    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "detected_objects", 5));
 
     sync_yolo_data_.reset(new message_filters::Synchronizer<YoloSyncPolicy>(YoloSyncPolicy(10), *sub_img_, *sub_objects_));
     sync_yolo_data_->registerCallback(boost::bind(&SyncedYoloData::recvSyncedData, this, _1, _2));
 
-    sync_lidar_data_.reset(new message_filters::Synchronizer<LidarSyncPolicy>(LidarSyncPolicy(10), *sub_objects_, *sub_lidar_));
+    sync_lidar_data_.reset(new message_filters::Synchronizer<LidarSyncPolicy>(LidarSyncPolicy(10), *sub_img_, *sub_lidar_));
     sync_lidar_data_->registerCallback(boost::bind(&SyncedYoloData::recvLidarSynced, this, _1, _2));
+
+    sub_lidar_objects_ = n.subscribe("object_tracks", 5, &SyncedYoloData::recvLidarObjects, this);
 
     car_bboxes_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("fused_objects", 1);
 
@@ -42,10 +44,22 @@ namespace camera_lidar_project
     
     Mat img_raw = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8)->image;
 
+    //car_boxes.objects.clear();
+
+    detections = object_msg->bounding_boxes;
+
     car_boxes.objects.clear();
 
-    for (auto& bbox : cam_bboxes_) {
+    for (auto& bbox : myArr) {
     //cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
+    //vec.at(0);
+    //cv::Rect2d& lebox = boost::get<cv::Rect2d>(vec[0]);
+
+    cv::Rect2d cam_box = bbox.first;
+
+    //int le_id = bbox.second;
+
+    //car_boxes.objects.clear();
 
     for (auto& detect : object_msg->bounding_boxes){
 
@@ -67,20 +81,28 @@ namespace camera_lidar_project
     //ROS_INFO("Box ID: %d", bbox_id );
     
     //Assign the label to the lidar box, Identified by the unique box id
-    if(IoU(bbox, detect))
+    if(IoU(cam_box, detect))
     {
 
-      ROS_INFO("This Box is a car: %d", bbox_id );
-      cv::rectangle(img_raw, bbox, Scalar(0, 0, 255));
+      //ROS_INFO("This Box is a car: %d", le_id );
+      cv::rectangle(img_raw, cam_box, Scalar(0, 0, 255));
+
+      /*
+      for (size_t i = 0; i < car_boxes.objects.size(); i++)
+      {
+         code 
+      }
+      */
 
       //car_boxes.objects.clear();
 
-      car_boxid = bbox_id;
+      //car_boxid = bbox_id;
 
-      avs_lecture_msgs::TrackedObject car_box;
+      
+      avs_lecture_msgs::TrackedObject car_box = bbox.second;
       //FusedObject car_box;
 
-      car_box.header = car_boxes.header;
+      car_box.header = car_boxes.header;;
       // Fill in the rest of the 'box' variable
       //         - Set `spawn_time` to the current ROS time
       //         - Increment the 'id' field for each cluster
@@ -90,21 +112,22 @@ namespace camera_lidar_project
       //         - Populate 'bounding_box_scale' with data from min_point and max_point
       //         - Leave 'bounding_box_offset' unpopulated
       //car_box.Class = detect.Class;
-      car_box.id = car_boxid;
+      //car_box.id = car_boxid;
       //car_box.spawn_time = ros::WallTime::now();
-      car_box.bounding_box_scale.x = bbox_scale_x;
-      car_box.bounding_box_scale.y = bbox_scale_y;
-      car_box.bounding_box_scale.z = bbox_scale_z;
-      car_box.pose.position.x = bbox_pos_x;
-      car_box.pose.position.y = bbox_pos_y;
-      car_box.pose.position.z = bbox_pos_z;
-      car_box.pose.orientation.w = 1.0;
+      // car_box.bounding_box_scale.x = bbox_scale_x;
+      // car_box.bounding_box_scale.y = bbox_scale_y;
+      // car_box.bounding_box_scale.z = bbox_scale_z;
+      // car_box.pose.position.x = bbox_pos_x;
+      // car_box.pose.position.y = bbox_pos_y;
+      // car_box.pose.position.z = bbox_pos_z;
+      // car_box.pose.orientation.w = 1.0;
     
 
       car_boxes.objects.push_back(car_box);
-
+      
+      
       car_bboxes_.publish(car_boxes);
-
+      
 
 
     }
@@ -135,13 +158,14 @@ namespace camera_lidar_project
 
   }
 
-  void SyncedYoloData::recvLidarSynced(const darknet_ros_msgs::BoundingBoxesConstPtr& bbox_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg)
+ //void SyncedYoloData::recvLidarSynced(const darknet_ros_msgs::BoundingBoxesConstPtr& bbox_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg)
+  void SyncedYoloData::recvLidarSynced(const sensor_msgs::ImageConstPtr& img_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg)
   {
 
   
   if (!looked_up_camera_transform_) {
     try {
-      camera_transform_ = buffer_.lookupTransform("base_footprint", "camera", object_msg->header.stamp);
+      camera_transform_ = buffer_.lookupTransform("base_footprint", "camera", img_msg->header.stamp);
       looked_up_camera_transform_ = true; // Once the lookup is successful, there is no need to keep doing the lookup
                                           // because the transform is constant
     } catch (tf2::TransformException& ex) {
@@ -158,11 +182,58 @@ namespace camera_lidar_project
   image_geometry::PinholeCameraModel model;
   model.fromCameraInfo(camera_info_);
 
-  cam_bboxes_.clear();
+  //car_boxes.objects.clear();
+  //car_boxes.header = object_msg->header;
+  //car_boxes.objects = object_msg->objects;
+  //car_bboxes_.publish(car_boxes);
+
+  //cam_bboxes_.clear();
+
+  //vec.clear();
+
+  myArr.clear();
+
   for (auto& obj : object_msg->objects) {
+
+    
+  car_boxes.header = object_msg->header;
+    /*
+    avs_lecture_msgs::TrackedObject car_box;
+    //FusedObject car_box;
+    
+    car_box.header = car_boxes.header;
+    // Fill in the rest of the 'box' variable
+    //         - Set `spawn_time` to the current ROS time
+    //         - Increment the 'id' field for each cluster
+    //         - Populate 'pose.position' with the midpoint between min_point and max_point
+    //         - Populate 'pose.orientation' with an identity quaternion
+    //         - Leave 'velocity.linear' and 'velocity.angular' unpopulated
+    //         - Populate 'bounding_box_scale' with data from min_point and max_point
+    //         - Leave 'bounding_box_offset' unpopulated
+    //car_box.Class = detect.Class;
+    car_box.id = obj.id;
+    car_box.spawn_time = ros::Time::now();
+    car_box.bounding_box_scale.x = obj.bounding_box_scale.x;
+    car_box.bounding_box_scale.y = obj.bounding_box_scale.y;
+    car_box.bounding_box_scale.z = obj.bounding_box_scale.z;
+    car_box.pose.position.x = obj.pose.position.x;
+    car_box.pose.position.y = obj.pose.position.y;
+    car_box.pose.position.z = obj.pose.position.z;
+    car_box.pose.orientation.w = 1.0;
+
+
+    car_boxes.objects.push_back(car_box);
+
+    //car_bboxes_.publish(car_boxes);
+    */
+    //int box_id = obj.id;
+      
     tf2::Transform transform;
     tf2::convert(camera_transform_.transform, transform);
-    cam_bboxes_.push_back(getCamBbox(obj, transform, model));
+
+    myArr.push_back({getCamBbox(obj, transform, model), obj});
+
+    //vec.at
   }
 
   
@@ -215,34 +286,45 @@ cv::Rect2d SyncedYoloData::getCamBbox(const avs_lecture_msgs::TrackedObject& obj
           max_y = p.y;
         }
         
-       // car_boxes.header = object.header;
-        // bbox_id = object.id;
-        // bbox_scale_x = object.bounding_box_scale.x;
-        // bbox_scale_y = object.bounding_box_scale.y;
-        // bbox_scale_z = object.bounding_box_scale.z;
-        // bbox_pos_x = object.pose.position.x;
-        // bbox_pos_y = object.pose.position.y;
-        // bbox_pos_z = object.pose.position.z;
-        // bbox_orientation= object.pose.orientation.w;
-
+      
 
 
         //ROS_INFO("Box ID: %d", bbox_id );
-
+      
       }
     }
   }
-  car_boxes.header = object.header;
-  bbox_id = object.id;
-  bbox_scale_x = object.bounding_box_scale.x;
-  bbox_scale_y = object.bounding_box_scale.y;
-  bbox_scale_z = object.bounding_box_scale.z;
-  bbox_pos_x = object.pose.position.x;
-  bbox_pos_y = object.pose.position.y;
-  bbox_pos_z = object.pose.position.z;
-  bbox_orientation= object.pose.orientation.w;
+  /*
+  avs_lecture_msgs::TrackedObject car_box;
+  //FusedObject car_box;
 
+  car_box.header = object.header;
+  // Fill in the rest of the 'box' variable
+  //         - Set `spawn_time` to the current ROS time
+  //         - Increment the 'id' field for each cluster
+  //         - Populate 'pose.position' with the midpoint between min_point and max_point
+  //         - Populate 'pose.orientation' with an identity quaternion
+  //         - Leave 'velocity.linear' and 'velocity.angular' unpopulated
+  //         - Populate 'bounding_box_scale' with data from min_point and max_point
+  //         - Leave 'bounding_box_offset' unpopulated
+  //car_box.Class = detect.Class;
+  car_box.id = object.id;
+  car_box.spawn_time = ros::Time::now();
+  car_box.bounding_box_scale.x = object.bounding_box_scale.x;
+  car_box.bounding_box_scale.y = object.bounding_box_scale.y;
+  car_box.bounding_box_scale.z = object.bounding_box_scale.z;
+  car_box.pose.position.x = object.pose.position.x;
+  car_box.pose.position.y = object.pose.position.y;
+  car_box.pose.position.z = object.pose.position.z;
+  car_box.pose.orientation.w = 1.0;
+
+  car_boxes.objects.push_back(car_box);
+
+  car_bboxes_.publish(car_boxes);
+  */
+  
   cv::Rect2d cam_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
+
   return cam_bbox;
 }
 
@@ -341,6 +423,11 @@ void SyncedYoloData::reconfig(CameraLidarFusionConfig& config, uint32_t level)
   camera_transform_.header.frame_id = "base_footprint";
   camera_transform_.child_frame_id = "camera_optical";
   broadcaster_.sendTransform(camera_transform_);
+}
+
+void SyncedYoloData::recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)
+{
+  //car_bboxes_.publish(car_boxes);
 }
 
 

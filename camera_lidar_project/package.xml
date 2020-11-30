@@ -22,6 +22,7 @@
   <depend>darknet_ros</depend>
   <depend>darknet_ros_msgs</depend>
   <depend>message_filters</depend>
+  <depend>visualization_msgs</depend>
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
 

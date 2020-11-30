@@ -2,6 +2,8 @@
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
 
+//#if DEBUG
+
 using namespace cv;
 
 //changed

@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   darknet_ros 
   message_generation
   message_filters
+  avs_lecture_msgs
+  visualization_msgs
 )
 
 find_package(OpenCV REQUIRED)
@@ -22,6 +24,7 @@ catkin_python_setup()
 
 generate_dynamic_reconfigure_options(
   cfg/CameraLidarFusion.cfg
+  cfg/Homework4.cfg
 )
 
 add_message_files(
@@ -71,6 +74,20 @@ target_link_libraries(synced_yolo_data
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
+
+add_executable(homework4
+ src/homework4_node.cpp
+ src/Homework4.cpp
+ src/ObjectEkf.cpp
+)
+add_dependencies(homework4
+  ${catkin_EXPORTED_TARGETS}
+  ${PROJECT_NAME}_gencfg
+)
+target_link_libraries(homework4
+  ${catkin_LIBRARIES}
+)
+
 
 catkin_install_python(
   PROGRAMS

@@ -32,7 +32,7 @@ namespace camera_lidar_project
 
   typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, darknet_ros_msgs::BoundingBoxes> YoloSyncPolicy;
 
-  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
+  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
   //typedef message_filters::sync_policies::ExactTime<darknet_ros_msgs::BoundingBoxes, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
 
   //Create Approximate time here for Lidar and Yolo detections
@@ -57,7 +57,11 @@ namespace camera_lidar_project
 
       cv::Rect2d getCamBbox(const avs_lecture_msgs::TrackedObject& object, const tf2::Transform& transform, const image_geometry::PinholeCameraModel& model);
 
-      bool IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect);
+      bool IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect,  int stale_objects);
+
+      void updateTimerCallback(const ros::TimerEvent& event);
+
+      bool updateFilterPredict(const ros::Time& current_time);
 
       //Subscriber and Sychronizer for image and darknet bounding boxes
       boost::shared_ptr<message_filters::Subscriber<sensor_msgs::Image> > sub_img_;
@@ -77,18 +81,8 @@ namespace camera_lidar_project
       ros::Subscriber sub_cam_info_;
       ros::Publisher car_bboxes_;
       ros::Subscriber sub_lidar_objects_;
+      ros::Timer update_timer_;
 
-
-      /*
-      ros::Subscriber sub_image_;
-      ros::Subscriber sub_detections_;
-      ros::Subscriber sub_lidar_objects_;
-      ros::Publisher pub_markers_;
-      //ros::Publisher pub_bboxes_;
-      ros::Publisher car_bboxes_;
-      ros::Publisher bounding_boxes_;
-      ros::Publisher detectionImagePublisher_;
-      */
 
 
     sensor_msgs::CameraInfo camera_info_;
@@ -110,20 +104,21 @@ namespace camera_lidar_project
     //revisit
     //FusedObjectArray car_boxes;
     avs_lecture_msgs::TrackedObjectArray car_boxes;
+    //avs_lecture_msgs::TrackedObjectArray final_boxes;
 
     bool doOverlap;
 
-    /*
-    uint32_t bbox_id;
-    uint32_t car_boxid;
-    //std_msgs::Header bbox_header; 
-    _Float64 bbox_scale_x; 
-    _Float64 bbox_scale_y; 
-    _Float64 bbox_scale_z; 
-    _Float64 bbox_pos_x; 
-    _Float64 bbox_pos_y; 
-    _Float64 bbox_pos_z; 
-    _Float64 bbox_orientation;
-    */
+    bool similar_box;
+
+    std::vector<int> previous_Box;
+
+    std::vector<int> One_run;
+
+    
+
+    ros::Time estimate_stamp_;
+
+    
+
   };
 }

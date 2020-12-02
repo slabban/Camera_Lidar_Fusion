@@ -2,9 +2,9 @@
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
 
-//#if DEBUG
+#define CALIBRATE_ALIGNMENT 0
+#define DEBUG 0
 
-using namespace cv;
 
 //changed
 namespace camera_lidar_project
@@ -14,12 +14,13 @@ namespace camera_lidar_project
   listener_(buffer_)
 
   {
-
+//detected_objects
+//object_tracks
     ros::NodeHandle cam_nh("camera");
     sub_cam_info_ = cam_nh.subscribe("camera_info", 1, &SyncedYoloData::recvCameraInfo, this);
     sub_img_.reset(new message_filters::Subscriber<sensor_msgs::Image>(n, "/darknet_ros/detection_image", 5));
     sub_objects_.reset(new message_filters::Subscriber<darknet_ros_msgs::BoundingBoxes>(n, "/darknet_ros/bounding_boxes", 5));
-    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "detected_objects", 5));
+    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "object_tracks", 10));
 
     sync_yolo_data_.reset(new message_filters::Synchronizer<YoloSyncPolicy>(YoloSyncPolicy(10), *sub_img_, *sub_objects_));
     sync_yolo_data_->registerCallback(boost::bind(&SyncedYoloData::recvSyncedData, this, _1, _2));
@@ -30,6 +31,8 @@ namespace camera_lidar_project
     sub_lidar_objects_ = n.subscribe("object_tracks", 5, &SyncedYoloData::recvLidarObjects, this);
 
     car_bboxes_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("fused_objects", 1);
+
+    update_timer_ = n.createTimer(ros::Duration(2), &SyncedYoloData::updateTimerCallback, this);
 
     looked_up_camera_transform_ = false;
 
@@ -46,22 +49,20 @@ namespace camera_lidar_project
     
     Mat img_raw = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8)->image;
 
+    detections = object_msg->bounding_boxes;
+    
+
+
     //car_boxes.objects.clear();
 
-    detections = object_msg->bounding_boxes;
-
-    car_boxes.objects.clear();
+    //previous_Box.clear();
+    One_run.clear();
 
     for (auto& bbox : myArr) {
-    //cv::rectangle(raw_img, bbox, Scalar(0, 0, 255));
-    //vec.at(0);
-    //cv::Rect2d& lebox = boost::get<cv::Rect2d>(vec[0]);
+
 
     cv::Rect2d cam_box = bbox.first;
 
-    //int le_id = bbox.second;
-
-    //car_boxes.objects.clear();
 
     for (auto& detect : object_msg->bounding_boxes){
 
@@ -71,90 +72,72 @@ namespace camera_lidar_project
       continue;
       }
 
+
       //ROS_INFO("%s \n", detect.Class.c_str());
 
-    double width = (detect.xmax-detect.xmin);
-    double height =(detect.ymax-detect.ymin);
+    //double width = (detect.xmax-detect.xmin);
+    //double height =(detect.ymax-detect.ymin);
 
     //cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
 
     //cv::rectangle(img_raw, detect_car, Scalar(255, 0, 255));
 
     //ROS_INFO("Box ID: %d", bbox_id );
+    int bbox_temp = bbox.second.id;
+
     
     //Assign the label to the lidar box, Identified by the unique box id
-    if(IoU(cam_box, detect))
+    if(IoU(cam_box, detect, bbox_temp))
     {
 
       //ROS_INFO("This Box is a car: %d", le_id );
       cv::rectangle(img_raw, cam_box, Scalar(0, 0, 255));
 
-      /*
-      for (size_t i = 0; i < car_boxes.objects.size(); i++)
-      {
-         code 
-      }
-      */
+      int bbox_id = bbox.second.id;      
+
+      ROS_INFO("Box ID: %d", bbox_id );
+
 
       //car_boxes.objects.clear();
 
       //car_boxid = bbox_id;
-
+      previous_Box.push_back(bbox_id);
       
       avs_lecture_msgs::TrackedObject car_box = bbox.second;
-      //FusedObject car_box;
 
-      car_box.header = car_boxes.header;;
-      // Fill in the rest of the 'box' variable
-      //         - Set `spawn_time` to the current ROS time
-      //         - Increment the 'id' field for each cluster
-      //         - Populate 'pose.position' with the midpoint between min_point and max_point
-      //         - Populate 'pose.orientation' with an identity quaternion
-      //         - Leave 'velocity.linear' and 'velocity.angular' unpopulated
-      //         - Populate 'bounding_box_scale' with data from min_point and max_point
-      //         - Leave 'bounding_box_offset' unpopulated
-      //car_box.Class = detect.Class;
-      //car_box.id = car_boxid;
-      //car_box.spawn_time = ros::WallTime::now();
-      // car_box.bounding_box_scale.x = bbox_scale_x;
-      // car_box.bounding_box_scale.y = bbox_scale_y;
-      // car_box.bounding_box_scale.z = bbox_scale_z;
-      // car_box.pose.position.x = bbox_pos_x;
-      // car_box.pose.position.y = bbox_pos_y;
-      // car_box.pose.position.z = bbox_pos_z;
-      // car_box.pose.orientation.w = 1.0;
+      car_box.header = car_boxes.header;
+
+
+/*
+    for (size_t i = 0; i < car_boxes.objects.size(); i++) {
+       if((ros::Time::now() - car_box.spawn_time) > ros::Duration(0.4))
+    {
+       car_boxes.objects.erase(car_boxes.objects.begin());
+    }
+    }
+    */
+
+      
     
-
       car_boxes.objects.push_back(car_box);
       
+      //car_bboxes_.publish(car_boxes);
       
-      car_bboxes_.publish(car_boxes);
-      
-
 
     }
+
+    
 
       }
     }
-    /*
-    for (auto& bbox : object_msg->bounding_boxes) {
 
-      double width = (bbox.xmax-bbox.xmin);
-      double height =(bbox.ymax-bbox.ymin);
-
-      cv::Point2d corner(bbox.xmin, bbox.ymin);
-      rectangle(img_raw, cv::Rect(bbox.xmin, bbox.ymin, width, height), Scalar(0, 255, 0));
-      //putText(raw_img, bbox.label, corner, FONT_HERSHEY_DUPLEX, 0.5, Scalar(255, 255, 255));
-    }
-
-    for (auto& bbox : cam_bboxes_) {
-    cv::rectangle(img_raw, bbox, Scalar(0, 0, 255));
-    }
-    */
+    #if DEBUG
 
     cv::pyrDown(img_raw, img_raw, cv::Size(img_raw.cols/2, img_raw.rows/2));
     imshow("Sync_Output", img_raw);
     waitKey(1);
+
+    #endif
     
   // create a global message and an apporximate sycronizer for the Lidar and Camera info, implement the IOU algorithm there!
 
@@ -184,58 +167,18 @@ namespace camera_lidar_project
   image_geometry::PinholeCameraModel model;
   model.fromCameraInfo(camera_info_);
 
-  //car_boxes.objects.clear();
-  //car_boxes.header = object_msg->header;
-  //car_boxes.objects = object_msg->objects;
-  //car_bboxes_.publish(car_boxes);
-
-  //cam_bboxes_.clear();
-
-  //vec.clear();
-
   myArr.clear();
 
   for (auto& obj : object_msg->objects) {
 
     
   car_boxes.header = object_msg->header;
-    /*
-    avs_lecture_msgs::TrackedObject car_box;
-    //FusedObject car_box;
-    
-    car_box.header = car_boxes.header;
-    // Fill in the rest of the 'box' variable
-    //         - Set `spawn_time` to the current ROS time
-    //         - Increment the 'id' field for each cluster
-    //         - Populate 'pose.position' with the midpoint between min_point and max_point
-    //         - Populate 'pose.orientation' with an identity quaternion
-    //         - Leave 'velocity.linear' and 'velocity.angular' unpopulated
-    //         - Populate 'bounding_box_scale' with data from min_point and max_point
-    //         - Leave 'bounding_box_offset' unpopulated
-    //car_box.Class = detect.Class;
-    car_box.id = obj.id;
-    car_box.spawn_time = ros::Time::now();
-    car_box.bounding_box_scale.x = obj.bounding_box_scale.x;
-    car_box.bounding_box_scale.y = obj.bounding_box_scale.y;
-    car_box.bounding_box_scale.z = obj.bounding_box_scale.z;
-    car_box.pose.position.x = obj.pose.position.x;
-    car_box.pose.position.y = obj.pose.position.y;
-    car_box.pose.position.z = obj.pose.position.z;
-    car_box.pose.orientation.w = 1.0;
-
-
-    car_boxes.objects.push_back(car_box);
-
-    //car_bboxes_.publish(car_boxes);
-    */
-    //int box_id = obj.id;
       
     tf2::Transform transform;
     tf2::convert(camera_transform_.transform, transform);
 
     myArr.push_back({getCamBbox(obj, transform, model), obj});
 
-    //vec.at
   }
 
   
@@ -296,34 +239,7 @@ cv::Rect2d SyncedYoloData::getCamBbox(const avs_lecture_msgs::TrackedObject& obj
       }
     }
   }
-  /*
-  avs_lecture_msgs::TrackedObject car_box;
-  //FusedObject car_box;
 
-  car_box.header = object.header;
-  // Fill in the rest of the 'box' variable
-  //         - Set `spawn_time` to the current ROS time
-  //         - Increment the 'id' field for each cluster
-  //         - Populate 'pose.position' with the midpoint between min_point and max_point
-  //         - Populate 'pose.orientation' with an identity quaternion
-  //         - Leave 'velocity.linear' and 'velocity.angular' unpopulated
-  //         - Populate 'bounding_box_scale' with data from min_point and max_point
-  //         - Leave 'bounding_box_offset' unpopulated
-  //car_box.Class = detect.Class;
-  car_box.id = object.id;
-  car_box.spawn_time = ros::Time::now();
-  car_box.bounding_box_scale.x = object.bounding_box_scale.x;
-  car_box.bounding_box_scale.y = object.bounding_box_scale.y;
-  car_box.bounding_box_scale.z = object.bounding_box_scale.z;
-  car_box.pose.position.x = object.pose.position.x;
-  car_box.pose.position.y = object.pose.position.y;
-  car_box.pose.position.z = object.pose.position.z;
-  car_box.pose.orientation.w = 1.0;
-
-  car_boxes.objects.push_back(car_box);
-
-  car_bboxes_.publish(car_boxes);
-  */
   
   cv::Rect2d cam_bbox(min_x, min_y, max_x - min_x, max_y - min_y);
 
@@ -335,7 +251,7 @@ void SyncedYoloData::recvCameraInfo(const sensor_msgs::CameraInfoConstPtr& msg)
   camera_info_ = *msg;
 }
 
-bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect)
+bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect, int stale_objects)
 {  
 
  //cv::Rect2d r2
@@ -405,6 +321,7 @@ bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& det
   {
     ROS_INFO("IoU :%f", IoU);
     return true;
+    One_run.push_back(stale_objects);
   }
   else
   {
@@ -429,8 +346,147 @@ void SyncedYoloData::reconfig(CameraLidarFusionConfig& config, uint32_t level)
 
 void SyncedYoloData::recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)
 {
-  //car_bboxes_.publish(car_boxes);
+  
+
+avs_lecture_msgs::TrackedObjectArray final_boxes;
+  //car_boxes.objects
+  //previous_Box
+  final_boxes.objects.clear();
+
+  for (auto& IoU_output : previous_Box)
+  {
+   for (auto& final_box : msg->objects)
+   {
+
+    // for (size_t i = 0; i < final_boxes.objects.size(); i++) {
+    // if((ros::Time::now() - final_box.spawn_time) > ros::Duration(0.5))
+    //   {
+    //   final_boxes.objects.erase(final_boxes.objects.begin());
+    //   }
+    //   }
+     
+     
+     if(final_box.id != IoU_output)
+     {
+       continue;
+     }
+
+     final_boxes.header = car_boxes.header;
+     final_boxes.objects.push_back(final_box);
+
+     car_bboxes_.publish(final_boxes);
+
+   }
+  }
+  
 }
+
+void SyncedYoloData::updateTimerCallback(const ros::TimerEvent& event)
+  { 
+    
+    std::vector<int> stale_objects;
+    for (auto& IoU_output : previous_Box)
+    {
+      for (auto& one_run : One_run)
+      {
+        if (IoU_output = one_run )
+        {
+          stale_objects.push_back(one_run);
+        }
+      }
+    }
+
+    previous_Box.clear();
+
+    for (auto& refresh_obj : stale_objects)
+    {
+      previous_Box.push_back(refresh_obj);
+    }
+    
+
+    // for (int i = (int)stale_objects.size() - 1; i >= 0; i--) {
+    // previous_Box.erase(previous_Box.begin() + stale_objects[i]);
+
+    // previous_Box.push_back(i);
+    // }
+
+   
+    
+
+    //previous_Box.clear();
+   //car_boxes.objects.clear();
+   //final_boxes.objects.clear();
+/*
+  avs_lecture_msgs::TrackedObjectArray final_boxes = car_boxes;
+
+
+  //car_boxes.objects
+  for (auto& IoU_output : final_boxes.objects)
+  {
+   //for (auto& final_box : msg->objects)
+   //{
+     
+     final_boxes.header = car_boxes.header;
+     
+     if (updateFilterPredict(event.current_real))
+     {
+       continue;
+     }
+     
+     
+     
+     //if(final_box.id != IoU_output.id)
+     //{
+      // continue;
+     //}
+     //IoU_output. = car_boxes.header;
+     final_boxes.objects.push_back(IoU_output);
+
+     car_bboxes_.publish(final_boxes);
+
+   //}
+   
+  }
+  */
+  }
+
+
+  bool SyncedYoloData::updateFilterPredict(const ros::Time& current_time)
+{
+  // Calculate time difference between current time and filter state
+  estimate_stamp_ = car_boxes.header.stamp;
+  double dt = (current_time - estimate_stamp_).toSec();
+
+  if((current_time - estimate_stamp_) < ros::Duration(0.5))
+  {
+
+  return true;
+
+  }
+
+  return false;
+
+
+/*
+  std::vector<size_t> stale_objects;
+  for (size_t i = 0; i < car_boxes.objects.size(); i++) {
+    car_boxes[i].updateFilterPredict(event.current_real);
+    if (car_boxes[i].isStale()) {
+      stale_objects.push_back(i);
+    }
+  }
+  */
+  /*
+  if (fabs(dt) > 2) {
+    // Large time jump detected... just reset to the current time
+    spawn_stamp_ = current_time;
+    estimate_stamp_ = current_time;
+    measurement_stamp_ = current_time;
+    return;
+  }
+  */
+}
+
 
 
 

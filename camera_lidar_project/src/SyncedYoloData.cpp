@@ -3,6 +3,8 @@
 #include <cv_bridge/cv_bridge.h>
 
 #define CALIBRATE_ALIGNMENT 0
+
+//Display OpenCv Images for debugging 
 #define DEBUG 0
 
 
@@ -14,13 +16,12 @@ namespace camera_lidar_project
   listener_(buffer_)
 
   {
-//detected_objects
-//object_tracks
+
     ros::NodeHandle cam_nh("camera");
     sub_cam_info_ = cam_nh.subscribe("camera_info", 1, &SyncedYoloData::recvCameraInfo, this);
     sub_img_.reset(new message_filters::Subscriber<sensor_msgs::Image>(n, "/darknet_ros/detection_image", 5));
     sub_objects_.reset(new message_filters::Subscriber<darknet_ros_msgs::BoundingBoxes>(n, "/darknet_ros/bounding_boxes", 5));
-    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "object_tracks", 10));
+    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "homework4/object_tracks", 10));
 
     sync_yolo_data_.reset(new message_filters::Synchronizer<YoloSyncPolicy>(YoloSyncPolicy(10), *sub_img_, *sub_objects_));
     sync_yolo_data_->registerCallback(boost::bind(&SyncedYoloData::recvSyncedData, this, _1, _2));
@@ -28,11 +29,11 @@ namespace camera_lidar_project
     sync_lidar_data_.reset(new message_filters::Synchronizer<LidarSyncPolicy>(LidarSyncPolicy(10), *sub_img_, *sub_lidar_));
     sync_lidar_data_->registerCallback(boost::bind(&SyncedYoloData::recvLidarSynced, this, _1, _2));
 
-    sub_lidar_objects_ = n.subscribe("object_tracks", 5, &SyncedYoloData::recvLidarObjects, this);
+    sub_lidar_objects_ = n.subscribe("homework4/object_tracks", 5, &SyncedYoloData::recvLidarObjects, this);
 
     car_bboxes_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("fused_objects", 1);
 
-    update_timer_ = n.createTimer(ros::Duration(2), &SyncedYoloData::updateTimerCallback, this);
+    //update_timer_ = n.createTimer(ros::Duration(2), &SyncedYoloData::updateTimerCallback, this);
 
     looked_up_camera_transform_ = false;
 
@@ -49,13 +50,7 @@ namespace camera_lidar_project
     
     Mat img_raw = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8)->image;
 
-    detections = object_msg->bounding_boxes;
-    
 
-
-    //car_boxes.objects.clear();
-
-    //previous_Box.clear();
     One_run.clear();
 
     for (auto& bbox : myArr) {
@@ -72,17 +67,20 @@ namespace camera_lidar_project
       continue;
       }
 
+    #if DEBUG
+    ROS_INFO("%s \n", detect.Class.c_str());
 
-      //ROS_INFO("%s \n", detect.Class.c_str());
+    double width = (detect.xmax-detect.xmin);
+    double height =(detect.ymax-detect.ymin);
 
-    //double width = (detect.xmax-detect.xmin);
-    //double height =(detect.ymax-detect.ymin);
+    cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
 
-    //cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
+    cv::rectangle(img_raw, detect_car, Scalar(255, 0, 255));
 
-    //cv::rectangle(img_raw, detect_car, Scalar(255, 0, 255));
+    ROS_INFO("Box ID: %d", bbox_id );
+    #endif
 
-    //ROS_INFO("Box ID: %d", bbox_id );
+
     int bbox_temp = bbox.second.id;
 
     
@@ -90,32 +88,21 @@ namespace camera_lidar_project
     if(IoU(cam_box, detect, bbox_temp))
     {
 
-      //ROS_INFO("This Box is a car: %d", le_id );
+      #if DEBUG
       cv::rectangle(img_raw, cam_box, Scalar(0, 0, 255));
+      #endif
 
       int bbox_id = bbox.second.id;      
 
-      ROS_INFO("Box ID: %d", bbox_id );
+      //ROS_INFO("Box ID: %d", bbox_id );
 
 
-      //car_boxes.objects.clear();
-
-      //car_boxid = bbox_id;
       previous_Box.push_back(bbox_id);
       
       avs_lecture_msgs::TrackedObject car_box = bbox.second;
 
       car_box.header = car_boxes.header;
 
-
-/*
-    for (size_t i = 0; i < car_boxes.objects.size(); i++) {
-       if((ros::Time::now() - car_box.spawn_time) > ros::Duration(0.4))
-    {
-       car_boxes.objects.erase(car_boxes.objects.begin());
-    }
-    }
-    */
 
       
     
@@ -139,11 +126,10 @@ namespace camera_lidar_project
 
     #endif
     
-  // create a global message and an apporximate sycronizer for the Lidar and Camera info, implement the IOU algorithm there!
 
   }
 
- //void SyncedYoloData::recvLidarSynced(const darknet_ros_msgs::BoundingBoxesConstPtr& bbox_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg)
+ 
   void SyncedYoloData::recvLidarSynced(const sensor_msgs::ImageConstPtr& img_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg)
   {
 
@@ -159,7 +145,6 @@ namespace camera_lidar_project
     return;
   }
 
-  //car_boxes.header = msg->header;
 
   // Create pinhole camera model instance and load
   // its parameters from the camera info
@@ -321,6 +306,8 @@ bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& det
   {
     ROS_INFO("IoU :%f", IoU);
     return true;
+
+    
     One_run.push_back(stale_objects);
   }
   else
@@ -344,149 +331,39 @@ void SyncedYoloData::reconfig(CameraLidarFusionConfig& config, uint32_t level)
   broadcaster_.sendTransform(camera_transform_);
 }
 
+//try bypassing lidar/img synchronizer?
+
 void SyncedYoloData::recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)
 {
   
 
-avs_lecture_msgs::TrackedObjectArray final_boxes;
-  //car_boxes.objects
-  //previous_Box
-  final_boxes.objects.clear();
+  avs_lecture_msgs::TrackedObjectArray final_boxes;
+
 
   for (auto& IoU_output : previous_Box)
   {
    for (auto& final_box : msg->objects)
    {
 
-    // for (size_t i = 0; i < final_boxes.objects.size(); i++) {
-    // if((ros::Time::now() - final_box.spawn_time) > ros::Duration(0.5))
-    //   {
-    //   final_boxes.objects.erase(final_boxes.objects.begin());
-    //   }
-    //   }
-     
      
      if(final_box.id != IoU_output)
      {
        continue;
      }
 
-     final_boxes.header = car_boxes.header;
+
      final_boxes.objects.push_back(final_box);
 
-     car_bboxes_.publish(final_boxes);
+
 
    }
   }
+  final_boxes.header = car_boxes.header;
+
+  car_bboxes_.publish(final_boxes);
+  
   
 }
-
-void SyncedYoloData::updateTimerCallback(const ros::TimerEvent& event)
-  { 
-    
-    std::vector<int> stale_objects;
-    for (auto& IoU_output : previous_Box)
-    {
-      for (auto& one_run : One_run)
-      {
-        if (IoU_output = one_run )
-        {
-          stale_objects.push_back(one_run);
-        }
-      }
-    }
-
-    previous_Box.clear();
-
-    for (auto& refresh_obj : stale_objects)
-    {
-      previous_Box.push_back(refresh_obj);
-    }
-    
-
-    // for (int i = (int)stale_objects.size() - 1; i >= 0; i--) {
-    // previous_Box.erase(previous_Box.begin() + stale_objects[i]);
-
-    // previous_Box.push_back(i);
-    // }
-
-   
-    
-
-    //previous_Box.clear();
-   //car_boxes.objects.clear();
-   //final_boxes.objects.clear();
-/*
-  avs_lecture_msgs::TrackedObjectArray final_boxes = car_boxes;
-
-
-  //car_boxes.objects
-  for (auto& IoU_output : final_boxes.objects)
-  {
-   //for (auto& final_box : msg->objects)
-   //{
-     
-     final_boxes.header = car_boxes.header;
-     
-     if (updateFilterPredict(event.current_real))
-     {
-       continue;
-     }
-     
-     
-     
-     //if(final_box.id != IoU_output.id)
-     //{
-      // continue;
-     //}
-     //IoU_output. = car_boxes.header;
-     final_boxes.objects.push_back(IoU_output);
-
-     car_bboxes_.publish(final_boxes);
-
-   //}
-   
-  }
-  */
-  }
-
-
-  bool SyncedYoloData::updateFilterPredict(const ros::Time& current_time)
-{
-  // Calculate time difference between current time and filter state
-  estimate_stamp_ = car_boxes.header.stamp;
-  double dt = (current_time - estimate_stamp_).toSec();
-
-  if((current_time - estimate_stamp_) < ros::Duration(0.5))
-  {
-
-  return true;
-
-  }
-
-  return false;
-
-
-/*
-  std::vector<size_t> stale_objects;
-  for (size_t i = 0; i < car_boxes.objects.size(); i++) {
-    car_boxes[i].updateFilterPredict(event.current_real);
-    if (car_boxes[i].isStale()) {
-      stale_objects.push_back(i);
-    }
-  }
-  */
-  /*
-  if (fabs(dt) > 2) {
-    // Large time jump detected... just reset to the current time
-    spawn_stamp_ = current_time;
-    estimate_stamp_ = current_time;
-    measurement_stamp_ = current_time;
-    return;
-  }
-  */
-}
-
 
 
 

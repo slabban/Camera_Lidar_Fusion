@@ -44,6 +44,8 @@ namespace homework4 {
 
       std::vector<ObjectEkf> object_ekfs_;
       static constexpr double DT = 1.0;
+
+      int id = 0;
   };
 
 }

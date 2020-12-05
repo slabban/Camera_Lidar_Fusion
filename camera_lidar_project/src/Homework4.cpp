@@ -8,7 +8,7 @@ namespace homework4
   // Constructor with global and private node handle arguments
   Homework4::Homework4(ros::NodeHandle& n, ros::NodeHandle& pn)
   {
-    sub_detected_objects_ = n.subscribe("fused_objects", 1, &Homework4::recvObjects, this);
+    sub_detected_objects_ = n.subscribe("detected_objects", 1, &Homework4::recvObjects, this);
     pub_object_tracks_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("homework4/object_tracks", 1);
 
     update_timer_ = n.createTimer(ros::Duration(0.02), &Homework4::updateTimerCallback, this);
@@ -120,19 +120,20 @@ namespace homework4
   }
 
   int Homework4::getUniqueId()
-  {
-    int id = 0;
-    bool done = false;
-    while (!done) {
-      done = true;
-      for (auto& track : object_ekfs_) {
-        if (track.getId() == id) {
-          done = false;
-          id++;
-          break;
-        }
-      }
-    }
+  { 
+    id++;
+
+    // bool done = false;
+    // while (!done) {
+    //   done = true;
+    //   for (auto& track : object_ekfs_) {
+    //     if (track.getId() == id) {
+    //       done = false;
+    //       id++;
+    //       break;
+    //     }
+    //   }
+    // }
     return id;
   }
 

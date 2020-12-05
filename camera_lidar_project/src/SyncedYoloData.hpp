@@ -29,13 +29,15 @@ using namespace cv;
 //changed
 namespace camera_lidar_project
 {
-
+  // Exact Time Syncronizer for Image Messages and Yolo 
   typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, darknet_ros_msgs::BoundingBoxes> YoloSyncPolicy;
 
-  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
+  // Approximate Time Syncronizer for Lidar and sensor messages
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
+
+  // DISREGARD
   //typedef message_filters::sync_policies::ExactTime<darknet_ros_msgs::BoundingBoxes, avs_lecture_msgs::TrackedObjectArray> LidarSyncPolicy;
 
-  //Create Approximate time here for Lidar and Yolo detections
 
 
   class SyncedYoloData
@@ -59,11 +61,10 @@ namespace camera_lidar_project
 
       bool IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect,  int stale_objects);
 
-      void updateTimerCallback(const ros::TimerEvent& event);
+      //void updateTimerCallback(const ros::TimerEvent& event);
 
-      bool updateFilterPredict(const ros::Time& current_time);
 
-      //Subscriber and Sychronizer for image and darknet bounding boxes
+      //Subscriber and Sychronizer for image, darknet bounding boxes, and LIDAR
       boost::shared_ptr<message_filters::Subscriber<sensor_msgs::Image> > sub_img_;
       boost::shared_ptr<message_filters::Subscriber<darknet_ros_msgs::BoundingBoxes> > sub_objects_;
       boost::shared_ptr<message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray> > sub_lidar_;
@@ -91,24 +92,15 @@ namespace camera_lidar_project
 
     std::vector<cv::Rect2d> cam_bboxes_;
 
-    //using box_w_id = boost::variant<cv::Rect2d, int>;
-    //std::vector<box_w_id> vec;
-
-    //std::vector<std::pair<cv::Rect2d, int> > myArr;
-
     std::vector<std::pair<cv::Rect2d, avs_lecture_msgs::TrackedObject> > myArr;
-
-    std::vector<darknet_ros_msgs::BoundingBox> detections;
     
 
-    //revisit
-    //FusedObjectArray car_boxes;
     avs_lecture_msgs::TrackedObjectArray car_boxes;
     //avs_lecture_msgs::TrackedObjectArray final_boxes;
 
     bool doOverlap;
 
-    bool similar_box;
+    //bool similar_box;
 
     std::vector<int> previous_Box;
 
@@ -116,7 +108,7 @@ namespace camera_lidar_project
 
     
 
-    ros::Time estimate_stamp_;
+    //ros::Time estimate_stamp_;
 
     
 

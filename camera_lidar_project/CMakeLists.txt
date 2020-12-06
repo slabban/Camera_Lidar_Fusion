@@ -52,28 +52,36 @@ include_directories(
 )
 
 add_executable(${PROJECT_NAME}
-  src/camera_lidar_fusion.cpp
-  src/CameraLidarFusion.cpp
+#  src/camera_lidar_fusion.cpp
+#  src/CameraLidarFusion.cpp
+ src/synced_yolo_data.cpp
+ src/SyncedYoloData.cpp
+ #src/homework4_node.cpp
+ #src/Homework4.cpp
+ #src/ObjectEkf.cpp
+
 )
+
 add_dependencies(${PROJECT_NAME}
   ${PROJECT_NAME}_gencfg
+  ${catkin_EXPORTED_TARGETS}
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
 
-add_executable(synced_yolo_data
-  src/synced_yolo_data.cpp
-  src/SyncedYoloData.cpp
-)
-add_dependencies(synced_yolo_data
-  ${catkin_EXPORTED_TARGETS}
-)
-target_link_libraries(synced_yolo_data
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBS}
-)
+#add_executable(synced_yolo_data
+#  src/synced_yolo_data.cpp
+#  src/SyncedYoloData.cpp
+#)
+#add_dependencies(synced_yolo_data
+#  ${catkin_EXPORTED_TARGETS}
+#)
+#target_link_libraries(synced_yolo_data
+#  ${catkin_LIBRARIES}
+#  ${OpenCV_LIBS}
+#)
 
 add_executable(homework4
  src/homework4_node.cpp

@@ -29,10 +29,15 @@
     <arg name="raw_points_topic" value="/cepton/points_raw" />
   </include>
 
-    <!-- Launch your Homework 4 node here -->
+  <!-- Launch Homework 4 node -->
   <node pkg="camera_lidar_project" type="homework4" name="homework4" output="screen" />
 
+  <!-- Launch Perception node -->
   <node pkg="camera_lidar_project" type="synced_yolo_data" name="synced_yolo_data" output="screen" /> 
+
+  <!-- Launch YOLOv3 -->
+  <include file="$(find darknet_ros)/launch/yolo_v3.launch">
+  </include>
   
   <node pkg="rviz" type="rviz" name="camera_lidar_fusion_viz" args="-d $(find camera_lidar_project)/rviz/rviz_config.rviz" respawn="true" />
 

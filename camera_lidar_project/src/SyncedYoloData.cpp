@@ -33,9 +33,10 @@ namespace camera_lidar_project
 
     car_bboxes_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("fused_objects", 1);
 
-    //update_timer_ = n.createTimer(ros::Duration(2), &SyncedYoloData::updateTimerCallback, this);
 
     looked_up_camera_transform_ = false;
+
+    previous_Box.clear();
 
     #if CALIBRATE_ALIGNMENT
     srv_.reset(new dynamic_reconfigure::Server<CameraLidarFusionConfig>);
@@ -47,6 +48,10 @@ namespace camera_lidar_project
 
   void SyncedYoloData::recvSyncedData(const sensor_msgs::ImageConstPtr& img_msg, const darknet_ros_msgs::BoundingBoxesConstPtr& object_msg)
   {
+    if (!looked_up_camera_transform_){
+      return;
+    }
+
     
     Mat img_raw = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8)->image;
 
@@ -55,7 +60,7 @@ namespace camera_lidar_project
 
     for (auto& bbox : myArr) {
 
-
+    // Access the 2D box of the LIDAR
     cv::Rect2d cam_box = bbox.first;
 
 
@@ -84,7 +89,7 @@ namespace camera_lidar_project
     int bbox_temp = bbox.second.id;
 
     
-    //Assign the label to the lidar box, Identified by the unique box id
+    //Compare 2D LIDAR box with YOLO bounding box, return true if IoU is over 50% [The third argument exist to store ID of the Latest successful IoU results, not used]
     if(IoU(cam_box, detect, bbox_temp))
     {
 
@@ -103,16 +108,11 @@ namespace camera_lidar_project
 
       car_box.header = car_boxes.header;
 
-
-      
     
       car_boxes.objects.push_back(car_box);
       
-      //car_bboxes_.publish(car_boxes);
-      
 
     }
-
     
 
       }
@@ -162,6 +162,7 @@ namespace camera_lidar_project
     tf2::Transform transform;
     tf2::convert(camera_transform_.transform, transform);
 
+    // This array associates the 2D LIDAR box with the 3D LIDAR Box 
     myArr.push_back({getCamBbox(obj, transform, model), obj});
 
   }
@@ -169,6 +170,7 @@ namespace camera_lidar_project
   
   
 }
+
 
 cv::Rect2d SyncedYoloData::getCamBbox(const avs_lecture_msgs::TrackedObject& object, const tf2::Transform& transform, const image_geometry::PinholeCameraModel& model)
 {
@@ -304,7 +306,7 @@ bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& det
   
   if(IoU > 0.5 )
   {
-    ROS_INFO("IoU :%f", IoU);
+    //ROS_INFO("IoU :%f", IoU);
     return true;
 
     

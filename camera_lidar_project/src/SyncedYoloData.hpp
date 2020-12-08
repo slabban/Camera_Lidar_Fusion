@@ -88,8 +88,6 @@ namespace camera_lidar_project
       ros::Subscriber sub_cam_info_;
       ros::Publisher car_bboxes_;
       ros::Subscriber sub_lidar_objects_;
-      ros::Timer update_timer_;
-
 
 
     sensor_msgs::CameraInfo camera_info_;

@@ -6,7 +6,7 @@
 #include <avs_lecture_msgs/TrackedObject.h>
 #include <eigen3/Eigen/Dense>
 
-namespace homework4
+namespace lidar_ekf
 {
   // Define variable type 'StateVector' to be a 4x1 Eigen matrix
   typedef Eigen::Vector4d StateVector;

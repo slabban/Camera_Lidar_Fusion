@@ -59,10 +59,11 @@ namespace camera_lidar_project
       
       void recvLidarSynced(const sensor_msgs::ImageConstPtr& img_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg);
       //void recvLidarSynced(const darknet_ros_msgs::BoundingBoxesConstPtr& bbox_msg, const avs_lecture_msgs::TrackedObjectArrayConstPtr& object_msg);
-      void recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg);
 
       // Converts 3D LIDAR Boxes to 2D images using Image Geometry(3D to Pixel)
       cv::Rect2d getCamBbox(const avs_lecture_msgs::TrackedObject& object, const tf2::Transform& transform, const image_geometry::PinholeCameraModel& model);
+
+      void recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg);
 
       // Function that compares 2D Boxes from LIDAR and YOLO
       bool IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect,  int stale_objects);
@@ -87,7 +88,6 @@ namespace camera_lidar_project
 
       ros::Subscriber sub_cam_info_;
       ros::Publisher car_bboxes_;
-      ros::Subscriber sub_lidar_objects_;
 
 
     sensor_msgs::CameraInfo camera_info_;
@@ -102,7 +102,7 @@ namespace camera_lidar_project
     //Stores the ID of the fused object
     std::vector<int> previous_Box;
 
-
+    ros::Subscriber sub_lidar_objects_;
 
     
     // Stores the entire message contents of the fused objects, for future use

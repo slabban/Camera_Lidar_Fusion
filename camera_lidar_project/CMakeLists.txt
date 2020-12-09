@@ -24,7 +24,7 @@ catkin_python_setup()
 
 generate_dynamic_reconfigure_options(
   cfg/CameraLidarFusion.cfg
-  cfg/Homework4.cfg
+  cfg/Lidar_ekf.cfg
 )
 
 add_message_files(
@@ -71,28 +71,28 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
 )
 
-#add_executable(synced_yolo_data
-#  src/synced_yolo_data.cpp
-#  src/SyncedYoloData.cpp
-#)
-#add_dependencies(synced_yolo_data
-#  ${catkin_EXPORTED_TARGETS}
-#)
-#target_link_libraries(synced_yolo_data
-#  ${catkin_LIBRARIES}
-#  ${OpenCV_LIBS}
-#)
+add_executable(synced_yolo_data
+  src/synced_yolo_data.cpp
+  src/SyncedYoloData.cpp
+)
+add_dependencies(synced_yolo_data
+  ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries(synced_yolo_data
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+)
 
-add_executable(homework4
- src/homework4_node.cpp
- src/Homework4.cpp
+add_executable(lidar_ekf
+ src/lidar_ekf_node.cpp
+ src/Lidar_ekf.cpp
  src/ObjectEkf.cpp
 )
-add_dependencies(homework4
+add_dependencies(lidar_ekf
   ${catkin_EXPORTED_TARGETS}
   ${PROJECT_NAME}_gencfg
 )
-target_link_libraries(homework4
+target_link_libraries(lidar_ekf
   ${catkin_LIBRARIES}
 )
 

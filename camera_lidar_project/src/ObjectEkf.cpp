@@ -1,6 +1,6 @@
 #include "ObjectEkf.hpp"
 
-namespace homework4
+namespace lidar_ekf
 {
 
   ObjectEkf::ObjectEkf(double x_pos0, double x_vel0,

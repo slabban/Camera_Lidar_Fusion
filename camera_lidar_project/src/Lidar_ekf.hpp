@@ -12,20 +12,20 @@
 
 // Dynamic reconfigure
 #include <dynamic_reconfigure/server.h>
-#include <camera_lidar_project/Homework4Config.h>
+#include <camera_lidar_project/Lidar_ekfConfig.h>
 
 #include "ObjectEkf.hpp"
 
 // Namespace matches ROS package name
-namespace homework4 {
+namespace lidar_ekf {
 
-  class Homework4 {
+  class Lidar_ekf {
     public:
-      Homework4(ros::NodeHandle& n, ros::NodeHandle& pn);
+      Lidar_ekf(ros::NodeHandle& n, ros::NodeHandle& pn);
 
     private:
       void updateTimerCallback(const ros::TimerEvent& event);
-      void reconfig(Homework4Config& config, uint32_t level);
+      void reconfig(Lidar_ekfConfig& config, uint32_t level);
       void recvObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg);
       int getUniqueId();
 
@@ -39,8 +39,8 @@ namespace homework4 {
       ros::Timer marker_timer_;
       ros::Timer update_timer_;
 
-      dynamic_reconfigure::Server<Homework4Config> srv_;
-      Homework4Config cfg_;
+      dynamic_reconfigure::Server<Lidar_ekfConfig> srv_;
+      Lidar_ekfConfig cfg_;
 
       std::vector<ObjectEkf> object_ekfs_;
       static constexpr double DT = 1.0;

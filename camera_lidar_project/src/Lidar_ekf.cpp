@@ -1,22 +1,22 @@
 // Header file for the class
-#include "Homework4.hpp"
+#include "Lidar_ekf.hpp"
 
 // Namespace matches ROS package name
-namespace homework4
+namespace lidar_ekf
 {
 
   // Constructor with global and private node handle arguments
-  Homework4::Homework4(ros::NodeHandle& n, ros::NodeHandle& pn)
+  Lidar_ekf::Lidar_ekf(ros::NodeHandle& n, ros::NodeHandle& pn)
   {
-    sub_detected_objects_ = n.subscribe("detected_objects", 1, &Homework4::recvObjects, this);
-    pub_object_tracks_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("homework4/object_tracks", 1);
+    sub_detected_objects_ = n.subscribe("detected_objects", 1, &Lidar_ekf::recvObjects, this);
+    pub_object_tracks_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("lidar_ekf/object_tracks", 1);
 
-    update_timer_ = n.createTimer(ros::Duration(0.02), &Homework4::updateTimerCallback, this);
+    update_timer_ = n.createTimer(ros::Duration(0.02), &Lidar_ekf::updateTimerCallback, this);
 
-    srv_.setCallback(boost::bind(&Homework4::reconfig, this, _1, _2));
+    srv_.setCallback(boost::bind(&Lidar_ekf::reconfig, this, _1, _2));
   }
 
-  void Homework4::updateTimerCallback(const ros::TimerEvent& event)
+  void Lidar_ekf::updateTimerCallback(const ros::TimerEvent& event)
   {
     // Delete stale objects that have not been observed for a while
     std::vector<size_t> stale_objects;
@@ -43,7 +43,7 @@ namespace homework4
     pub_object_tracks_.publish(object_track_msg);
   }
 
-  void Homework4::recvObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)
+  void Lidar_ekf::recvObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)
   {
     // Vector to hold the EKF indices that have already been matched to an incoming object measurement
     std::vector<int> matched_object_indices;
@@ -108,7 +108,7 @@ namespace homework4
     }
   }
 
-  void Homework4::reconfig(Homework4Config& config, uint32_t level)
+  void Lidar_ekf::reconfig(Lidar_ekfConfig& config, uint32_t level)
   {
     cfg_ = config;
 
@@ -119,7 +119,7 @@ namespace homework4
     }
   }
 
-  int Homework4::getUniqueId()
+  int Lidar_ekf::getUniqueId()
   { 
     id++;
 

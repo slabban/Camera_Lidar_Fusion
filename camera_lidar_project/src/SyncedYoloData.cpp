@@ -21,7 +21,7 @@ namespace camera_lidar_project
     sub_cam_info_ = cam_nh.subscribe("camera_info", 1, &SyncedYoloData::recvCameraInfo, this);
     sub_img_.reset(new message_filters::Subscriber<sensor_msgs::Image>(n, "/darknet_ros/detection_image", 5));
     sub_objects_.reset(new message_filters::Subscriber<darknet_ros_msgs::BoundingBoxes>(n, "/darknet_ros/bounding_boxes", 5));
-    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "homework4/object_tracks", 10));
+    sub_lidar_.reset(new message_filters::Subscriber<avs_lecture_msgs::TrackedObjectArray>(n, "/lidar_ekf/object_tracks", 10));
 
     sync_yolo_data_.reset(new message_filters::Synchronizer<YoloSyncPolicy>(YoloSyncPolicy(10), *sub_img_, *sub_objects_));
     sync_yolo_data_->registerCallback(boost::bind(&SyncedYoloData::recvSyncedData, this, _1, _2));
@@ -29,7 +29,7 @@ namespace camera_lidar_project
     sync_lidar_data_.reset(new message_filters::Synchronizer<LidarSyncPolicy>(LidarSyncPolicy(10), *sub_img_, *sub_lidar_));
     sync_lidar_data_->registerCallback(boost::bind(&SyncedYoloData::recvLidarSynced, this, _1, _2));
 
-    sub_lidar_objects_ = n.subscribe("homework4/object_tracks", 5, &SyncedYoloData::recvLidarObjects, this);
+    sub_lidar_objects_ = n.subscribe("/lidar_ekf/object_tracks", 5, &SyncedYoloData::recvLidarObjects, this);
 
     car_bboxes_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("fused_objects", 1);
 
@@ -58,65 +58,71 @@ namespace camera_lidar_project
 
     One_run.clear();
 
-    for (auto& bbox : myArr) {
+    car_boxes.objects.clear();
+
+    for (auto& bbox : myArr) 
+    {
 
     // Access the 2D box of the LIDAR
     cv::Rect2d cam_box = bbox.first;
 
 
-    for (auto& detect : object_msg->bounding_boxes){
+      for (auto& detect : object_msg->bounding_boxes)
+        {
 
-      //car_boxes.objects.clear();
-      if (detect.Class != "car"){
+        //car_boxes.objects.clear();
+        if (detect.Class != "car")
+        {
 
-      continue;
-      }
+        continue;
+        }
 
-    #if DEBUG
-    ROS_INFO("%s \n", detect.Class.c_str());
+        #if DEBUG
+        ROS_INFO("%s \n", detect.Class.c_str());
 
-    double width = (detect.xmax-detect.xmin);
-    double height =(detect.ymax-detect.ymin);
+        double width = (detect.xmax-detect.xmin);
+        double height =(detect.ymax-detect.ymin);
 
-    cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
+        cv::Rect2d detect_car (detect.xmin, detect.ymin, width, height);
 
-    cv::rectangle(img_raw, detect_car, Scalar(255, 0, 255));
+        cv::rectangle(img_raw, detect_car, Scalar(255, 0, 255));
 
-    ROS_INFO("Box ID: %d", bbox_id );
-    #endif
-
-
-    int bbox_temp = bbox.second.id;
-
-    
-    //Compare 2D LIDAR box with YOLO bounding box, return true if IoU is over 50% [The third argument exist to store ID of the Latest successful IoU results, not used]
-    if(IoU(cam_box, detect, bbox_temp))
-    {
-
-      #if DEBUG
-      cv::rectangle(img_raw, cam_box, Scalar(0, 0, 255));
-      #endif
-
-      int bbox_id = bbox.second.id;      
-
-      //ROS_INFO("Box ID: %d", bbox_id );
+        ROS_INFO("Box ID: %d", bbox_id );
+        #endif
 
 
-      previous_Box.push_back(bbox_id);
+        int bbox_temp = bbox.second.id;
+
+        
+        //Compare 2D LIDAR box with YOLO bounding box, return true if IoU is over 50% [The third argument exist to store ID of the Latest successful IoU results, not used]
+        if(IoU(cam_box, detect, bbox_temp))
+        {
+
+          #if DEBUG
+          cv::rectangle(img_raw, cam_box, Scalar(0, 0, 255));
+          #endif
+
+          int bbox_id = bbox.second.id;      
+
+          //ROS_INFO("Box ID: %d", bbox_id );
+
+
+          previous_Box.push_back(bbox_id);
+
+
+          
+          avs_lecture_msgs::TrackedObject car_box = bbox.second;
+
+          car_box.header = car_boxes.header;
+
+        
+          car_boxes.objects.push_back(car_box);
       
-      avs_lecture_msgs::TrackedObject car_box = bbox.second;
-
-      car_box.header = car_boxes.header;
-
-    
-      car_boxes.objects.push_back(car_box);
-      
-
-    }
-    
-
+         }
       }
-    }
+   }
+
+    //car_bboxes_.publish(car_boxes);
 
     #if DEBUG
 
@@ -219,10 +225,6 @@ cv::Rect2d SyncedYoloData::getCamBbox(const avs_lecture_msgs::TrackedObject& obj
         }
         
       
-
-
-        //ROS_INFO("Box ID: %d", bbox_id );
-      
       }
     }
   }
@@ -238,7 +240,7 @@ void SyncedYoloData::recvCameraInfo(const sensor_msgs::CameraInfoConstPtr& msg)
   camera_info_ = *msg;
 }
 
-bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect, int stale_objects)
+bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& detect, int fresh_objects)
 {  
 
  //cv::Rect2d r2
@@ -306,11 +308,11 @@ bool SyncedYoloData::IoU(cv::Rect2d r1, const darknet_ros_msgs::BoundingBox& det
   
   if(IoU > 0.5 )
   {
-    //ROS_INFO("IoU :%f", IoU);
+
     return true;
 
     
-    One_run.push_back(stale_objects);
+    One_run.push_back(fresh_objects);
   }
   else
   {
@@ -332,8 +334,6 @@ void SyncedYoloData::reconfig(CameraLidarFusionConfig& config, uint32_t level)
   camera_transform_.child_frame_id = "camera_optical";
   broadcaster_.sendTransform(camera_transform_);
 }
-
-//try bypassing lidar/img synchronizer?
 
 void SyncedYoloData::recvLidarObjects(const avs_lecture_msgs::TrackedObjectArrayConstPtr& msg)
 {
